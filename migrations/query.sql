@@ -29,12 +29,6 @@ RETURNING *;
 DELETE FROM authors
 WHERE id = $1;
 
------------------------------------------
-
--- name: ListAuthorsByIDs :many
-SELECT * FROM authors
-WHERE id = ANY($1::int[]);
-
 
 -- name: CountAuthors :one
 SELECT count(*) FROM authors;

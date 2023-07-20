@@ -6,3 +6,6 @@ build:
 
 run:
 	go run cmd/main.go
+
+test:
+	sqlc vet

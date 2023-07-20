@@ -8,8 +8,6 @@ package generate
 import (
 	"context"
 	"database/sql"
-
-	"github.com/lib/pq"
 )
 
 const countAuthors = `-- name: CountAuthors :one
@@ -34,7 +32,7 @@ RETURNING id, name, bio, created_at, updated_at, deleted_at
 
 type CreateAuthorParams struct {
 	Name string
-	Bio  sql.NullString
+	Bio  string
 }
 
 func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error) {
@@ -87,43 +85,6 @@ ORDER BY name
 
 func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
 	rows, err := q.db.QueryContext(ctx, listAuthors)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Author
-	for rows.Next() {
-		var i Author
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Bio,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.DeletedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAuthorsByIDs = `-- name: ListAuthorsByIDs :many
-
-SELECT id, name, bio, created_at, updated_at, deleted_at FROM authors
-WHERE id = ANY($1::int[])
-`
-
-// ---------------------------------------
-func (q *Queries) ListAuthorsByIDs(ctx context.Context, dollar_1 []int32) ([]Author, error) {
-	rows, err := q.db.QueryContext(ctx, listAuthorsByIDs, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}

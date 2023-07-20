@@ -2,8 +2,7 @@ package main
 
 import (
 	"log"
-
-	i "github.com/SQLC/internal"
+	i "github.com/SQLC/internal/app"
 )
 
 func main() {

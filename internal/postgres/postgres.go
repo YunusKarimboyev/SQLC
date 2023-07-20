@@ -3,19 +3,9 @@ package internal
 import (
 	"context"
 	"database/sql"
-	"time"
 
-	"github.com/lib/pq"
+	"github.com/SQLC/internal/repo"
 )
-
-type Author struct {
-	ID   int
-	Name string
-	Bio  sql.NullString
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
-}
 
 type DBTX interface {
 	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
@@ -31,49 +21,15 @@ type Queries struct {
 	db DBTX
 }
 
-type AuthorParams struct {
-	ID   int
-	Name string
-	Bio  sql.NullString
-}
-
-func (q *Queries) CreateAuthor(ctx context.Context, arg AuthorParams) (Author, error) {
-	var i Author
+func (q *Queries) CreateAuthor(ctx context.Context, arg *repo.AuthorParams) (*repo.Author, error) {
+	var i repo.Author
 
 	const createAuthor = `-- name: CreateAuthor :one
 	INSERT INTO authors (name, bio) VALUES ($1, $2) RETURNING id, name, bio, created_at`
 	row := q.db.QueryRowContext(ctx, createAuthor, arg.Name, arg.Bio)
 
 	err := row.Scan(&i.ID, &i.Name, &i.Bio, &i.CreatedAt)
-	return i, err
-}
-
-func (q *Queries) ListAuthorsByIDs(ctx context.Context, ids []int) ([]Author, error) {
-	var items []Author
-
-	const listAuthors = `-- name: ListAuthorsByIDs :many
-	SELECT id, bio, name, created_at FROM authors WHERE id = ANY($1::int[])`
-
-	rows, err := q.db.QueryContext(ctx, listAuthors, pq.Array(ids))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var i Author
-		if err := rows.Scan(&i.ID, &i.Bio, &i.Name, &i.CreatedAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return &i, err
 }
 
 func (q *Queries) CountAuthors(ctx context.Context) (int, error) {
@@ -88,7 +44,7 @@ func (q *Queries) CountAuthors(ctx context.Context) (int, error) {
 	return i, err
 }
 
-func (q *Queries) UpdateAuthor(ctx context.Context, arg AuthorParams) error {
+func (q *Queries) UpdateAuthor(ctx context.Context, arg *repo.AuthorParams) error {
 
 	const updateAuthor = `-- name: UpdateAuthor :exec
 	UPDATE authors SET bio = $2 WHERE id = $1`
