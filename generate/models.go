@@ -6,10 +6,14 @@ package generate
 
 import (
 	"database/sql"
+	"time"
 )
 
 type Author struct {
-	ID   int32
-	Name string
-	Bio  sql.NullString
+	ID        int32
+	Name      string
+	Bio       sql.NullString
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt sql.NullTime
 }

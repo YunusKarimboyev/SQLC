@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -11,6 +12,9 @@ type Author struct {
 	ID   int
 	Name string
 	Bio  sql.NullString
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt sql.NullTime
 }
 
 type DBTX interface {
@@ -37,19 +41,18 @@ func (q *Queries) CreateAuthor(ctx context.Context, arg AuthorParams) (Author, e
 	var i Author
 
 	const createAuthor = `-- name: CreateAuthor :one
-	INSERT INTO authors (name, bio) VALUES ($1, $2) RETURNING id, name, bio`
+	INSERT INTO authors (name, bio) VALUES ($1, $2) RETURNING id, name, bio, created_at`
 	row := q.db.QueryRowContext(ctx, createAuthor, arg.Name, arg.Bio)
-	
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+
+	err := row.Scan(&i.ID, &i.Name, &i.Bio, &i.CreatedAt)
 	return i, err
 }
-
 
 func (q *Queries) ListAuthorsByIDs(ctx context.Context, ids []int) ([]Author, error) {
 	var items []Author
 
 	const listAuthors = `-- name: ListAuthorsByIDs :many
-	SELECT id, bio, birth_year FROM authors WHERE id = ANY($1::int[])`
+	SELECT id, bio, name, created_at FROM authors WHERE id = ANY($1::int[])`
 
 	rows, err := q.db.QueryContext(ctx, listAuthors, pq.Array(ids))
 	if err != nil {
@@ -59,7 +62,7 @@ func (q *Queries) ListAuthorsByIDs(ctx context.Context, ids []int) ([]Author, er
 
 	for rows.Next() {
 		var i Author
-		if err := rows.Scan(&i.ID, &i.Bio, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.Bio, &i.Name, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -73,7 +76,6 @@ func (q *Queries) ListAuthorsByIDs(ctx context.Context, ids []int) ([]Author, er
 	return items, nil
 }
 
-
 func (q *Queries) CountAuthors(ctx context.Context) (int, error) {
 	var i int
 
@@ -86,7 +88,6 @@ func (q *Queries) CountAuthors(ctx context.Context) (int, error) {
 	return i, err
 }
 
-
 func (q *Queries) UpdateAuthor(ctx context.Context, arg AuthorParams) error {
 
 	const updateAuthor = `-- name: UpdateAuthor :exec
@@ -96,12 +97,11 @@ func (q *Queries) UpdateAuthor(ctx context.Context, arg AuthorParams) error {
 	return err
 }
 
-
 func (q *Queries) DeleteAuthor(ctx context.Context, id int) error {
 
 	const deleteAuthor = `-- name: DeleteAuthor :exec
 	DELETE FROM authors WHERE id = $1`
-	
+
 	_, err := q.db.ExecContext(ctx, deleteAuthor, id)
 	return err
 }

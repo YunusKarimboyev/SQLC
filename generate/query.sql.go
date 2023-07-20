@@ -8,7 +8,20 @@ package generate
 import (
 	"context"
 	"database/sql"
+
+	"github.com/lib/pq"
 )
+
+const countAuthors = `-- name: CountAuthors :one
+SELECT count(*) FROM authors
+`
+
+func (q *Queries) CountAuthors(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAuthors)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createAuthor = `-- name: CreateAuthor :one
 INSERT INTO authors (
@@ -16,7 +29,7 @@ INSERT INTO authors (
 ) VALUES (
   $1, $2
 )
-RETURNING id, name, bio
+RETURNING id, name, bio, created_at, updated_at, deleted_at
 `
 
 type CreateAuthorParams struct {
@@ -27,7 +40,14 @@ type CreateAuthorParams struct {
 func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error) {
 	row := q.db.QueryRowContext(ctx, createAuthor, arg.Name, arg.Bio)
 	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Bio,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
 	return i, err
 }
 
@@ -42,19 +62,26 @@ func (q *Queries) DeleteAuthor(ctx context.Context, id int32) error {
 }
 
 const getAuthor = `-- name: GetAuthor :one
-SELECT id, name, bio FROM authors
+SELECT id, name, bio, created_at, updated_at, deleted_at FROM authors
 WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAuthor(ctx context.Context, id int32) (Author, error) {
 	row := q.db.QueryRowContext(ctx, getAuthor, id)
 	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Bio,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
 	return i, err
 }
 
 const listAuthors = `-- name: ListAuthors :many
-SELECT id, name, bio FROM authors
+SELECT id, name, bio, created_at, updated_at, deleted_at FROM authors
 ORDER BY name
 `
 
@@ -67,7 +94,51 @@ func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
 	var items []Author
 	for rows.Next() {
 		var i Author
-		if err := rows.Scan(&i.ID, &i.Name, &i.Bio); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Bio,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuthorsByIDs = `-- name: ListAuthorsByIDs :many
+
+SELECT id, name, bio, created_at, updated_at, deleted_at FROM authors
+WHERE id = ANY($1::int[])
+`
+
+// ---------------------------------------
+func (q *Queries) ListAuthorsByIDs(ctx context.Context, dollar_1 []int32) ([]Author, error) {
+	rows, err := q.db.QueryContext(ctx, listAuthorsByIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Author
+	for rows.Next() {
+		var i Author
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Bio,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -86,7 +157,7 @@ UPDATE authors
   set name = $2,
   bio = $3
 WHERE id = $1
-RETURNING id, name, bio
+RETURNING id, name, bio, created_at, updated_at, deleted_at
 `
 
 type UpdateAuthorParams struct {
@@ -98,6 +169,13 @@ type UpdateAuthorParams struct {
 func (q *Queries) UpdateAuthor(ctx context.Context, arg UpdateAuthorParams) (Author, error) {
 	row := q.db.QueryRowContext(ctx, updateAuthor, arg.ID, arg.Name, arg.Bio)
 	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Bio,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
 	return i, err
 }

@@ -7,3 +7,5 @@ sql:
       go:
         package: "generate"
         out: "generate"
+    database:
+      uri: "postgresql://yunus:godev@localhost:5432/postgres"
